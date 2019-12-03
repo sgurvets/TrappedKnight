@@ -69,6 +69,42 @@ def plot(cmap='twilight', knight=None, filename=None):
                 print("saved")
                 print(filename)
                 
+class plot1k:
+    #iterator class takes a knight and plots 1000 points at a time
+    def __init__(self, knight, interval=1000, cmap='twilight'):
+        self.knight = knight
+        self.length = len(knight.x_visited)
+        self.cmap = cmap
+        self.interval = interval
+        
+    def __iter__(self):
+        self.cur_val = 0
+        return self
+        
+    def __next__(self):
+        if self.cur_val < self.length:
+            x = np.array(self.knight.x_visited[self.cur_val:self.cur_val+self.interval])
+            y = np.array(self.knight.y_visited[self.cur_val:self.cur_val+self.interval])
+            z = np.array([i for i in self.knight.n_visited[self.cur_val:self.cur_val+self.interval]])
+            points = np.array([x, y]).T.reshape(-1, 1, 2)
+            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        
+            norm = plt.Normalize(z.min(), z.max())
+            lc = LineCollection(segments, cmap=self.cmap, norm=norm)
+            lc.set_array(z)
+            fig, axs = plt.subplots()
+        
+            line = axs.add_collection(lc)
+            axs.set_xlim(x.min(), x.max())
+            axs.set_ylim(y.min(), y.max())
+            plt.show()
+            plt.close()
+            
+            self.cur_val+=self.interval
+            
+        else:
+            raise StopIteration
+                
 class HeatMapBuilder:
     
     def __init__(self,startx=2, starty=1,endx=10,endy=10,cmap="viridis",isprime=False ):
@@ -152,46 +188,7 @@ class Master:
     #sets up the simulation and builds file names
     def __init__(self, startx=1, starty=11,endx=41,endy=61,cmap="twilight",
                  directory="/Users/sgurvets/Documents/", isprime=False):
-        
-        #i want this to be a local function so that it cleans up its own memory
-        
-        def plot(cmap='twilight', knight=None, filename=None):
-        #expects knight class to have x,y,n visited lists
-            if knight == None:
-                return None
-        
-            x = np.array(knight.x_visited)
-            y = np.array(knight.y_visited)
-#            z = np.array([i for i in knight.n_visited])
-            #this actually maps the jump count, not the spiral value
-            z = np.array([i for i in range(len(knight.n_visited))])
-#            z = np.array(knight.cand_count)
-        
-            points = np.array([x, y]).T.reshape(-1, 1, 2)
-            segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        
-            norm = plt.Normalize(z.min(), z.max())
-            lc = LineCollection(segments, cmap=cmap, norm=norm)
-            lc.set_array(z)
-            fig, axs = plt.subplots()
-        
-            line = axs.add_collection(lc)
-            fig.colorbar(line)
-            axs.set_xlim(x.min(), x.max())
-            axs.set_ylim(y.min(), y.max())
-#        axs.plot(x, y)
-
-            if filename == None:
-                plt.show()
-                plt.close()
-                return None
-            if filename != None:
-                plt.savefig(filename, dpi = 300)
-                plt.close()
-                return None
-                print("saved")
-                print(filename)
-                
+                        
         curx = startx
         cury = starty
         while curx != endx:
@@ -199,7 +196,7 @@ class Master:
 #            cury = starty
 #            while cury != curx:
             print("cur coords = "+str(curx)+"_"+str(cury))
-            filename=directory+"trappedknight_1+_nummap/"+str(curx)+"_"+str(cury)+".png"
+            filename=directory+"trappedknight_plottest/"+str(curx)+"_"+str(cury)+".png"
             k = Knight(curx,cury,isprime)
             result = plot(cmap,knight=k,filename=filename)
             del k
@@ -211,46 +208,7 @@ class HexMaster:
     #sets up the simulation and builds file names
     def __init__(self, startx=1, starty=11,endx=41,endy=61,cmap="twilight",
                  directory="/Users/sgurvets/Documents/", isprime=False):
-        
-        #i want this to be a local function so that it cleans up its own memory
-        
-        def plot(cmap='twilight', knight=None, filename=None):
-        #expects knight class to have x,y,n visited lists
-            if knight == None:
-                return None
-        
-            x = np.array(knight.x_visited)
-            y = np.array(knight.y_visited)
-            z = np.array([i for i in knight.n_visited])
-            #this actually maps the jump count, not the spiral value
-#            z = np.array([i for i in range(len(knight.n_visited))])
-#            z = np.array(knight.cand_count)
-        
-            points = np.array([x, y]).T.reshape(-1, 1, 2)
-            segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        
-            norm = plt.Normalize(z.min(), z.max())
-            lc = LineCollection(segments, cmap=cmap, norm=norm)
-            lc.set_array(z)
-            fig, axs = plt.subplots()
-        
-            line = axs.add_collection(lc)
-            fig.colorbar(line)
-            axs.set_xlim(x.min(), x.max())
-            axs.set_ylim(y.min(), y.max())
-#        axs.plot(x, y)
-
-            if filename == None:
-                plt.show()
-                plt.close()
-                return None
-            if filename != None:
-                plt.savefig(filename, dpi = 300)
-                plt.close()
-                return None
-                print("saved")
-                print(filename)
-                
+                        
         curx = startx
         cury = starty
         while curx != endx:
@@ -266,40 +224,60 @@ class HexMaster:
             curx=curx+1
 #            cury=(curx*2)+1
             
-        
-
-class Knight:
-    #jumps around until trapped
+class AbstractKnight:
+    #parent class for rectangular, hex, knights
+    #children implement get_candidate functions
+    #children implement grid functions
     def __init__(self, dx=1, dy = 2, isprime=False):
         self.xstep = dx
         self.ystep = dy
         self.step_max = max(dx,dy)
         self.xstart = 0
         self.ystart = 0
+        self.zstart = 0
         self.xpos = 0
         self.ypos = 0
+        self.zpos = 0
         self.max_visited = 0
         self.x_visited = []
         self.y_visited = []
+        self.z_visited = []
         self.n_visited = []
         self.cand_count = []
         self.n_visited.append(1)
-        self.grid = Grid()
-        for j in range(self.step_max):
-                    self.grid.add_ring()
+        
                     
-        self.run(isprime)
+#        self.run(isprime)
     
     def update_max_visited(self, val):
         if val > self.max_visited:
             self.max_visited = val
-        
+            
     def run(self, isprime=False):
         step = True
         while step == True:
             step = self.step(isprime)
         print("squares visited = "+str(len(self.n_visited)))
-    
+            
+class Knight(AbstractKnight):
+    #jumps around until trapped
+    def __init__(self, dx=1, dy = 2, isprime=False):
+        super().__init__(dx,dy,isprime)
+        
+#        self.grid = Grid()
+#        for j in range(self.step_max):
+#            self.grid.add_ring()
+        self.implement_grid()
+                    
+        self.run(isprime)
+        
+        
+    def implement_grid(self):
+        self.grid = Grid()
+        for j in range(self.step_max):
+            self.grid.add_ring()
+        
+   #TODO implement candidate class which holds dimension and abstract this 
     def update_position(self, candidate):
         self.xpos = candidate[0]
         self.ypos = candidate[1]
@@ -412,7 +390,7 @@ class Knight:
     
     
     
-class HexKnight:
+class HexKnight(AbstractKnight):
     #jumps around until trapped
     def __init__(self, dx=1, dy = 2, isprime=False):
         self.xstep = dx
@@ -428,23 +406,18 @@ class HexKnight:
         self.x_visited = []
         self.y_visited = []
         self.z_visited = []
-        self.n_visited = set()
-        self.n_visited.add(1)
-        self.grid = HexGrid()
-        for j in range(self.step_max):
-                    self.grid.add_ring()
+        self.n_visited = []
+        self.n_visited.append(1)
+        
+        self.implement_grid()
                     
         self.run(isprime)     
 
                
-    def get_holes(self):
-        all_n = set(i for i in range(1,self.max_visited+1))
-        holes = all_n.difference(self.n_visited)
-        return holes
-    
-    def update_max_visited(self, val):
-        if val > self.max_visited:
-            self.max_visited = val
+    def implement_grid(self):
+        self.grid = HexGrid
+        for j in range(self.step_max):
+            self.grid.add_ring()
         
     def run(self, isprime=False):
         step = True
@@ -466,6 +439,7 @@ class HexKnight:
             self.update_max_visited(candidate[3])
             return True
         
+        
     def update_position(self, candidate):
         self.xpos = candidate[0]
         self.ypos = candidate[1]
@@ -482,8 +456,6 @@ class HexKnight:
         z = self.zpos
         dx = self.xstep
         dy = self.ystep
-
-        
 
         #12 candidate moves on the hex board
         #https://en.wikipedia.org/wiki/Hexagonal_chess#/media/File:Glinski_Chess_Knight.svg
@@ -529,7 +501,6 @@ class HexKnight:
         dx = self.xstep
         dy = self.ystep
 
-        
 
         #12 candidate moves on the hex board
         #https://en.wikipedia.org/wiki/Hexagonal_chess#/media/File:Glinski_Chess_Knight.svg
